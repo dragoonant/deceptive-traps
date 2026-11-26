@@ -91,6 +91,13 @@ throws an intruder from one mechanism into the next is the point of the game.
 | Left / right click | Place / sell | — |
 | Enter | Start wave | — |
 
+**Touch (phones and tablets, enabled automatically):** floating joystick under
+the left thumb; right-thumb drag turns the camera; a quick tap on the floor
+selects the tile that **Place / Sell** act on; the trap bar is tappable. A
+right-hand button grid swaps per phase: **Place, ↻, Sell, Start** in setup and
+**Floor, Wall, Ceiling, Dash** in waves, with trigger buttons glowing green when
+armed. Phones render at reduced resolution with cheaper shadows.
+
 ## 6. Traps
 
 One trap per **layer** (floor, wall, ceiling) per tile, so a floor trap and a

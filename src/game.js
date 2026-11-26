@@ -89,6 +89,7 @@ export class Game {
 
   enterSetup() {
     this.state = 'setup';
+    this.touchTarget = null;
     this.hud.setScreen(null);
     for (const t of this.traps) t.resetNow();
     this.hud.banner(`<b>Wave ${this.waveIndex + 1}</b><br>Set your traps`, 2.5);
@@ -217,6 +218,22 @@ export class Game {
     if (this.ghost) this.scene.add(this.ghost.group);
   }
 
+  // Floor tile under a screen point in normalized device coords (-1..1), or null.
+  tileAtScreen(ndcX, ndcY) {
+    this.raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
+    const hit = new THREE.Vector3();
+    if (!this.raycaster.ray.intersectPlane(this.floorPlane, hit)) return null;
+    const t = worldToTile(hit.x, hit.z);
+    return isWalkable(t.i, t.j) ? t : null;
+  }
+
+  // Touch: tapping the view selects the tile that Place / Sell act on.
+  selectTileAtScreen(ndcX, ndcY) {
+    if (this.state !== 'setup') return;
+    const t = this.tileAtScreen(ndcX, ndcY);
+    if (t) this.touchTarget = t;
+  }
+
   updateBuild() {
     const input = this.input;
     TRAP_ORDER.forEach((type, idx) => {
@@ -228,14 +245,8 @@ export class Game {
     }
     if (input.wasPressed('r')) this.dirIndex++;
 
-    // Crosshair ray onto the floor.
-    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-    const hit = new THREE.Vector3();
-    let tile = null;
-    if (this.raycaster.ray.intersectPlane(this.floorPlane, hit)) {
-      const t = worldToTile(hit.x, hit.z);
-      if (isWalkable(t.i, t.j)) tile = t;
-    }
+    // On touch screens a tapped tile wins; otherwise use the crosshair ray.
+    let tile = this.touchTarget || this.tileAtScreen(0, 0);
     this.target = tile;
 
     this.setGhost(this.selectedType);
@@ -243,7 +254,7 @@ export class Game {
     for (const m of this.zoneMeshes) m.visible = false;
     if (!tile) {
       this.ghost.group.visible = false;
-      this.placementHint = 'Aim the crosshair at a floor tile';
+      this.placementHint = this.touchMode ? 'Tap a floor tile to select it' : 'Aim the crosshair at a floor tile';
       return;
     }
     const why = this.canPlace(type, tile.i, tile.j);
@@ -263,9 +274,13 @@ export class Game {
       m.material.color.setHex(why ? 0xff4040 : 0x40ff60);
     });
 
-    this.placementHint = why
-      ? `✖ ${why}. Right-click: sell`
-      : 'Click: place · R: rotate · Right-click: sell · Enter: start wave';
+    if (this.touchMode) {
+      this.placementHint = why ? `✖ ${why}` : 'Tap a tile, then Place · ↻ rotates';
+    } else {
+      this.placementHint = why
+        ? `✖ ${why}. Right-click: sell`
+        : 'Click: place · R: rotate · Right-click: sell · Enter: start wave';
+    }
 
     for (const b of input.clicks) {
       if (b === 0) {

@@ -1,14 +1,17 @@
 import * as THREE from 'three';
 import { Input } from './input.js';
 import { Game } from './game.js';
+import { TouchControls, isTouchDevice } from './touch.js';
 import './style.css';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Phones get a lighter render: lower resolution scale and cheaper shadows.
+const mobile = isTouchDevice();
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
@@ -17,14 +20,22 @@ scene.background = new THREE.Color(0x07060a);
 scene.fog = new THREE.Fog(0x07060a, 18, 40);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+// Portrait screens are narrow, so widen the vertical FOV to keep a usable view.
+const fitFov = () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.fov = camera.aspect < 1 ? 78 : 60;
+  camera.updateProjectionMatrix();
+};
+fitFov();
 
 const input = new Input(canvas);
 const game = new Game({ renderer, scene, camera, input });
 window.__game = game; // handy for debugging and automated smoke tests
+const touch = new TouchControls(input, game);
+if (mobile && game.room.moon) game.room.moon.shadow.mapSize.set(2048, 1024);
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  fitFov();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
@@ -48,6 +59,7 @@ function frame(now) {
   if (steps === MAX_STEPS) acc = 0;
   if (steps === 0) input.endFrameIfIdle();
   game.endFrame(frameDt);
+  touch.update(game);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }

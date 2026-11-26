@@ -26,6 +26,11 @@ npm run build    # static build in dist/
    target. `Space` dashes through attacks.
 3. Chain hits within 3 seconds for damage multipliers and big score.
 
+**On a phone or tablet** the game switches to touch controls automatically: the
+left thumb is a floating joystick, dragging with the right thumb turns the camera,
+tap the floor to pick a tile, and use the on-screen buttons (Place / ↻ / Sell /
+Start in setup; Floor / Wall / Ceiling / Dash in waves). Landscape plays best.
+
 The manor has three rooms (Grand Foyer, Boiler Room, Gallery) joined by narrow
 passages, and intruders come in through two doors. Break line of sight and run
 to drag pursuers into a different trap layout.

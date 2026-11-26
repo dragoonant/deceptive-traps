@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#07060a" />
     <title>Brassmoor: Deceptive Traps</title>
   </head>
   <body>
@@ -35,7 +39,19 @@
         You are Wren, last Keeper of a clockwork manor. You cannot fight. The house fights for you.<br />
         Lure intruders onto your traps and chain them into combos.
       </p>
-      <table class="keys">
+      <table class="keys touch-only">
+        <tr><td>Left thumb</td><td>Move (stick appears where you touch)</td></tr>
+        <tr><td>Right thumb</td><td>Drag to turn the camera</td></tr>
+        <tr><th colspan="2">Setup phase</th></tr>
+        <tr><td>Tap the floor</td><td>Select a tile</td></tr>
+        <tr><td>Trap bar</td><td>Choose a trap</td></tr>
+        <tr><td>Place / ↻ / Sell</td><td>Build, rotate, refund</td></tr>
+        <tr><td>Start ▶</td><td>Start the wave</td></tr>
+        <tr><th colspan="2">Wave phase</th></tr>
+        <tr><td>Floor / Wall / Ceiling</td><td>Fire armed traps (green = target in zone)</td></tr>
+        <tr><td>Dash</td><td>Dodge through attacks</td></tr>
+      </table>
+      <table class="keys desk-only">
         <tr><td>WASD</td><td>Move</td><td>Mouse / Q E</td><td>Camera</td></tr>
         <tr><td>Space</td><td>Dash (brief invulnerability)</td><td>Enter</td><td>Start wave</td></tr>
         <tr><th colspan="4">Setup phase</th></tr>
@@ -45,17 +61,17 @@
         <tr><td>1</td><td>Fire floor traps</td><td>2</td><td>Fire wall traps</td></tr>
         <tr><td>3</td><td>Fire ceiling traps</td><td colspan="2" class="dim">Only traps with a target in their zone fire</td></tr>
       </table>
-      <p class="go">Press <b>Enter</b> to begin</p>
+      <p class="go"><span class="desk-only">Press <b>Enter</b> or click</span><span class="touch-only">Tap</span> to begin</p>
     </div>
     <div id="screen-victory" class="screen">
       <h1>The house endures</h1>
       <p id="victory-stats"></p>
-      <p class="go">Press <b>Enter</b> to play again</p>
+      <p class="go"><span class="desk-only">Press <b>Enter</b> or click</span><span class="touch-only">Tap</span> to play again</p>
     </div>
     <div id="screen-defeat" class="screen">
       <h1>The Keeper has fallen</h1>
       <p id="defeat-stats"></p>
-      <p class="go">Press <b>Enter</b> to try again</p>
+      <p class="go"><span class="desk-only">Press <b>Enter</b> or click</span><span class="touch-only">Tap</span> to try again</p>
     </div>
 
     <script type="module" src="/src/main.js"></script>
