@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { Intruder } from '../src/intruder.js';
 import { Trap } from '../src/traps.js';
-import { tileCenter, worldToTile } from '../src/room.js';
+import { tileCenter, worldToTile } from '../src/level.js';
 import { TRAPS } from '../src/config.js';
 
 const scene = { add() {}, remove() {} };
@@ -44,29 +44,29 @@ function step(game, traps, seconds) {
 
 const tileOf = (n) => worldToTile(n.pos.x, n.pos.z);
 
-test('piston ram on the west wall sends a thief to tile 3', () => {
+test('piston ram on the Foyer west wall sends a thief 3 tiles out', () => {
   const game = makeGame();
-  const ram = new Trap(scene, 'ram', 0, 4, { x: 1, z: 0 });
-  const n = spawn(game, 'thief', 0, 4);
+  const ram = new Trap(scene, 'ram', 9, 2, { x: 1, z: 0 });
+  const n = spawn(game, 'thief', 9, 2);
   assert.ok(ram.fire(game));
   step(game, [ram], 1.5);
-  assert.deepEqual(tileOf(n), { i: 3, j: 4 });
+  assert.deepEqual(tileOf(n), { i: 12, j: 2 });
   assert.equal(n.hp, 100 - TRAPS.ram.damage);
 });
 
 test('knights resist knockback and travel about half as far', () => {
   const game = makeGame();
-  const ram = new Trap(scene, 'ram', 0, 4, { x: 1, z: 0 });
-  const n = spawn(game, 'knight', 0, 4);
+  const ram = new Trap(scene, 'ram', 9, 2, { x: 1, z: 0 });
+  const n = spawn(game, 'knight', 9, 2);
   ram.fire(game);
   step(game, [ram], 1.5);
-  assert.equal(tileOf(n).i, 1);
+  assert.equal(tileOf(n).i, 10);
 });
 
 test('spring plate launch ends in a Hard Landing', () => {
   const game = makeGame();
-  const spring = new Trap(scene, 'spring', 2, 4, { x: 1, z: 0 });
-  spawn(game, 'thief', 2, 4);
+  const spring = new Trap(scene, 'spring', 11, 2, { x: 1, z: 0 });
+  spawn(game, 'thief', 11, 2);
   spring.fire(game);
   step(game, [spring], 2);
   assert.deepEqual(game.hits, ['Spring Plate', 'Hard Landing']);
@@ -74,8 +74,8 @@ test('spring plate launch ends in a Hard Landing', () => {
 
 test('pendulum next to a wall causes a Wall Slam', () => {
   const game = makeGame();
-  const pend = new Trap(scene, 'pendulum', 6, 4, { x: 1, z: 0 });
-  spawn(game, 'thief', 6, 4);
+  const pend = new Trap(scene, 'pendulum', 15, 2, { x: 1, z: 0 });
+  spawn(game, 'thief', 15, 2);
   pend.fire(game);
   step(game, [pend], 1.5);
   assert.deepEqual(game.hits, ['Pendulum Blade', 'Wall Slam']);
@@ -83,11 +83,11 @@ test('pendulum next to a wall causes a Wall Slam', () => {
 
 test('ram -> clamp -> weight chains into a 3-hit combo and kills a thief', () => {
   const game = makeGame();
-  const ram = new Trap(scene, 'ram', 0, 4, { x: 1, z: 0 });
-  const clamp = new Trap(scene, 'clamp', 3, 4, { x: 0, z: 1 });
-  const weight = new Trap(scene, 'weight', 3, 4, { x: 0, z: 1 });
+  const ram = new Trap(scene, 'ram', 9, 2, { x: 1, z: 0 });
+  const clamp = new Trap(scene, 'clamp', 12, 2, { x: 0, z: 1 });
+  const weight = new Trap(scene, 'weight', 12, 2, { x: 0, z: 1 });
   const traps = [ram, clamp, weight];
-  const n = spawn(game, 'thief', 0, 4);
+  const n = spawn(game, 'thief', 9, 2);
 
   ram.fire(game);
   step(game, traps, 0.9);
@@ -105,7 +105,28 @@ test('ram -> clamp -> weight chains into a 3-hit combo and kills a thief', () =>
 
 test('traps without a target in their zone report none', () => {
   const game = makeGame();
-  const clamp = new Trap(scene, 'clamp', 3, 4, { x: 0, z: 1 });
-  spawn(game, 'thief', 6, 6);
+  const clamp = new Trap(scene, 'clamp', 12, 2, { x: 0, z: 1 });
+  spawn(game, 'thief', 15, 6);
   assert.equal(clamp.targetsIn(game.intruders).length, 0);
+});
+
+test('a ram in a one-tile corridor slams the thief into the opposite wall', () => {
+  const game = makeGame();
+  // West Passage tiles (7,4)-(8,4) have stone to the north and south.
+  const ram = new Trap(scene, 'ram', 7, 4, { x: 0, z: 1 });
+  spawn(game, 'thief', 7, 4);
+  ram.fire(game);
+  step(game, [ram], 1);
+  assert.deepEqual(game.hits, ['Piston Ram', 'Wall Slam']);
+});
+
+test('a pendulum swinging along the corridor knocks the thief into the next room', () => {
+  const game = makeGame();
+  const pend = new Trap(scene, 'pendulum', 7, 4, { x: -1, z: 0 });
+  const n = spawn(game, 'thief', 8, 4);
+  pend.fire(game);
+  step(game, [pend], 2);
+  assert.equal(game.hits[0], 'Pendulum Blade');
+  const t = tileOf(n);
+  assert.ok(t.i <= 6, `expected thief in the Boiler Room, got i=${t.i}`);
 });

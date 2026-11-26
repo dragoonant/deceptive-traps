@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TRAPS, TILE, WALL_H } from './config.js';
-import { tileCenter, worldToTile, inGrid, inwardDirs } from './room.js';
+import { tileCenter, worldToTile, isWalkable, inwardDirs } from './level.js';
 
 const DIRS = [
   { x: 0, z: 1 },
@@ -218,14 +218,14 @@ export class Trap {
     if (this.type === 'ram') {
       const out = [];
       for (let k = 0; k < this.def.reach; k++) out.push({ i: i + dir.x * k, j: j + dir.z * k });
-      return out.filter((t) => inGrid(t.i, t.j));
+      return out.filter((t) => isWalkable(t.i, t.j));
     }
     if (this.type === 'pendulum') {
       return [
         { i: i - dir.x, j: j - dir.z },
         { i, j },
         { i: i + dir.x, j: j + dir.z },
-      ].filter((t) => inGrid(t.i, t.j));
+      ].filter((t) => isWalkable(t.i, t.j));
     }
     return [{ i, j }];
   }

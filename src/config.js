@@ -1,8 +1,6 @@
 // All gameplay tuning lives here so balance passes don't touch logic.
 
-export const TILE = 2; // world units per grid tile
-export const GRID_W = 9; // tiles along X
-export const GRID_D = 9; // tiles along Z
+export const TILE = 2; // world units per grid tile (the map lives in level.js)
 export const WALL_H = 5;
 
 export const GRAVITY = 24;
@@ -54,7 +52,7 @@ export const TRAPS = {
     reach: 2, // tiles in front of the wall that the ram head sweeps
     knock: { h: 13, v: 3 }, // thief lands ~2.5 tiles out, i.e. on tile 3 from the wall
     color: 0x8a6d9e,
-    desc: 'Mounted on an edge tile. Punches intruders away from the wall.',
+    desc: 'Mounted on any wall. Punches intruders away from it.',
   },
   pendulum: {
     name: 'Pendulum Blade',
@@ -127,11 +125,13 @@ export const INTRUDERS = {
   },
 };
 
+// Each intruder enters through a door defined in level.js (north = Foyer, east = Gallery).
 export const WAVES = [
-  { intruders: ['thief', 'thief'], spacing: 2.5 },
-  { intruders: ['thief', 'thief', 'thief'], spacing: 2 },
-  { intruders: ['knight', 'thief', 'thief'], spacing: 2.5 },
+  { spacing: 2.5, intruders: [['thief', 'north'], ['thief', 'north']] },
+  { spacing: 2, intruders: [['thief', 'north'], ['thief', 'east'], ['thief', 'north']] },
+  { spacing: 2.5, intruders: [['knight', 'east'], ['thief', 'north'], ['thief', 'north']] },
+  { spacing: 2, intruders: [['knight', 'north'], ['thief', 'east'], ['knight', 'east'], ['thief', 'north']] },
 ];
 
-export const STARTING_COGS = 200;
+export const STARTING_COGS = 250;
 export const SELL_REFUND = 1; // full refund during setup

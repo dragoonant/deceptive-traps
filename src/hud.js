@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { TRAPS, TRAP_ORDER, CATEGORIES, PLAYER } from './config.js';
+import { W, D, AREAS, DOORS, areaAt, areaNameAt, HALF_W, HALF_D } from './level.js';
+
+const MINI = 9; // minimap pixels per tile
 
 const $ = (id) => document.getElementById(id);
 
@@ -12,6 +15,74 @@ export class Hud {
     this.bannerTimer = 0;
     this.comboTimer = 0;
     this.buildPalette();
+    this.initMinimap();
+  }
+
+  initMinimap() {
+    const c = $('minimap');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = W * MINI * dpr;
+    c.height = D * MINI * dpr;
+    c.style.width = `${W * MINI}px`;
+    c.style.height = `${D * MINI}px`;
+    this.mini = c.getContext('2d');
+    this.mini.scale(dpr, dpr);
+    // Static layer: floors and doors, drawn once.
+    const base = document.createElement('canvas');
+    base.width = c.width;
+    base.height = c.height;
+    const g = base.getContext('2d');
+    g.scale(dpr, dpr);
+    for (let j = 0; j < D; j++) {
+      for (let i = 0; i < W; i++) {
+        const a = areaAt(i, j);
+        if (!a) continue;
+        const col = AREAS[a].floor;
+        g.fillStyle = `rgba(${(col >> 16) & 255},${(col >> 8) & 255},${col & 255},0.28)`;
+        g.fillRect(i * MINI + 0.5, j * MINI + 0.5, MINI - 1, MINI - 1);
+      }
+    }
+    g.fillStyle = '#d4a84a';
+    for (const d of Object.values(DOORS)) {
+      const x = d.i * MINI + MINI / 2 + d.side.x * MINI * 0.55;
+      const y = d.j * MINI + MINI / 2 + d.side.z * MINI * 0.55;
+      g.fillRect(x - 2.5, y - 2.5, 5, 5);
+    }
+    this.miniBase = base;
+  }
+
+  drawMinimap(game) {
+    const g = this.mini;
+    g.clearRect(0, 0, W * MINI, D * MINI);
+    g.drawImage(this.miniBase, 0, 0, W * MINI, D * MINI);
+    const toPx = (x, z) => [((x + HALF_W) / (HALF_W * 2)) * W * MINI, ((z + HALF_D) / (HALF_D * 2)) * D * MINI];
+    for (const t of game.traps) {
+      const col = t.def.color;
+      g.fillStyle = `#${col.toString(16).padStart(6, '0')}`;
+      const inset = t.category === 'ceiling' ? 1.5 : t.category === 'wall' ? 3 : 2.5;
+      g.fillRect(t.i * MINI + inset, t.j * MINI + inset, MINI - inset * 2, MINI - inset * 2);
+    }
+    for (const n of game.intruders) {
+      if (!n.alive) continue;
+      const [x, y] = toPx(n.pos.x, n.pos.z);
+      g.fillStyle = '#ff4a4a';
+      g.beginPath();
+      g.arc(x, y, n.type === 'knight' ? 3.5 : 2.6, 0, Math.PI * 2);
+      g.fill();
+    }
+    const p = game.player;
+    const [px, py] = toPx(p.pos.x, p.pos.z);
+    g.fillStyle = '#ffe08a';
+    g.beginPath();
+    g.arc(px, py, 3, 0, Math.PI * 2);
+    g.fill();
+    // Facing tick.
+    g.strokeStyle = '#ffe08a';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(px, py);
+    g.lineTo(px + Math.sin(p.facing) * 7, py + Math.cos(p.facing) * 7);
+    g.stroke();
   }
 
   buildPalette() {
@@ -58,6 +129,8 @@ export class Hud {
     if (game.state === 'setup') phase.textContent = 'Setup: place traps, then press Enter';
     else if (game.state === 'wave') phase.textContent = `Intruders: ${game.aliveCount()} remaining`;
     else phase.textContent = '';
+    $('room-name').textContent = areaNameAt(p.pos.x, p.pos.z);
+    this.drawMinimap(game);
 
     const setup = game.state === 'setup';
     $('palette').classList.toggle('show', setup);

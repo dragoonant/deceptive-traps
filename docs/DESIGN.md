@@ -1,6 +1,6 @@
 # Brassmoor: Deceptive Traps (design doc)
 
-> Working title. A trap-defense action game in the tradition of the PlayStation-era
+> A trap-defense action game in the tradition of the PlayStation-era
 > "you are the house, not the hero" games. Everything here (setting, characters,
 > traps, art) is original. The genre is the inspiration. No names, characters,
 > levels or assets come from any existing game.
@@ -47,7 +47,38 @@ throws an intruder from one mechanism into the next is the point of the game.
 * **Between waves:** traps reset, the Keeper recovers 30 HP, earned cogs buy
   more traps.
 
-## 4. Controls (prototype)
+## 4. The manor (prototype layout)
+
+```
+            north door
+                v
+ . . . . . . . . . A A A A A A A A A . . . . . . . . .
+ C C C C C C C . . A A A A A A A A A . . G G G G G G G
+ C C C C C C C . . A A A A A A A A A . . G G G G G G G
+ C C C C C C C . . A A A A A A A A A . . G G G G G G G
+ C C C C C C C w w A A A A A A A A A e e G G G G G G G  < east door
+ C C C C C C C . . A A A A A A A A A . . G G G G G G G
+ C C C C C C C . . A A A A A A A A A . . G G G G G G G
+ C C C C C C C . . A A A A A A A A A . . G G G G G G G
+ . . . . . . . . . A A A A A A A A A . . . . . . . . .
+```
+
+| Area | Size | Character |
+|---|---|---|
+| **Grand Foyer** (A) | 9×9 | The hub. Intruders arrive through its north door. Plenty of wall for rams |
+| **Boiler Room** (C) | 7×7 | Dead end, warm light. The safest room to retreat to and the best place to stage a finish |
+| **Gallery** (G) | 7×7 | Cold light. The east door opens here, so from wave 2 on intruders come from both sides |
+| **West / East Passage** (w, e) | 2×1 | One tile wide with stone on both sides. Choke points: a ram here slams the target straight into the opposite wall, and a pendulum swinging along the passage throws them into the next room |
+
+* Walls are generated wherever floor meets stone, so the map in `src/level.js`
+  is the single source of truth for collision, rendering, line of sight and the
+  minimap.
+* Intruders head straight for the Keeper when they can see Wren, and otherwise
+  follow a breadth-first flow field through the passages. Breaking line of
+  sight and running is how you pull pursuers into a different trap layout.
+* No trap may be built on a door tile, so spawn-camping isn't possible.
+
+## 5. Controls (prototype)
 
 | Input | Setup phase | Wave phase |
 |---|---|---|
@@ -60,7 +91,7 @@ throws an intruder from one mechanism into the next is the point of the game.
 | Left / right click | Place / sell | — |
 | Enter | Start wave | — |
 
-## 5. Traps
+## 6. Traps
 
 One trap per **layer** (floor, wall, ceiling) per tile, so a floor trap and a
 ceiling trap can stack on the same tile, which is the basis of most combos.
@@ -69,7 +100,7 @@ ceiling trap can stack on the same tile, which is the basis of most combos.
 |---|---|---|---|---|---|---|
 | Spring Plate | Floor | 30 | 10 | 3.5s | 1 tile | Launch up + ~2 tiles forward; touchdown causes **Hard Landing** |
 | Gear Clamp | Floor | 40 | 15 | 6s | 1 tile | Pins for 3s, snapping the target to the tile centre. Any knockback frees them |
-| Piston Ram | Wall | 50 | 20 | 4s | 2 tiles from an edge | Punches ~2.5 tiles away from the wall (lands on tile 3) |
+| Piston Ram | Wall | 50 | 20 | 4s | 2 tiles out from a wall | Punches ~2.5 tiles away from the wall (lands on tile 3) |
 | Pendulum Blade | Ceiling | 60 | 30 | 5s | 1×3 strip | Knocks ~3 tiles along its swing; **Wall Slam** if a wall is closer |
 | Iron Weight | Ceiling | 70 | 45 | 7s | 1 tile | Falls after 0.4s; stuns 1.5s. Misses if the target walks off. Pair with a clamp |
 
@@ -78,13 +109,18 @@ geometry is part of the trap set.
 
 ### Signature combos (all verified in simulation)
 
+* **Passage slam:** a ram on a passage tile hits the target straight into the
+  opposite wall (Piston Ram → Wall Slam).
+* **Passage sweep:** a pendulum swinging along a passage throws the target into
+  the next room.
+
 * **Ram → Clamp → Weight:** ram from the wall onto a clamp 3 tiles out, then drop
   the weight on the pinned target. 107 damage with the chain multiplier, enough
   to kill a thief.
 * **Spring → Hard Landing:** a free second hit from any spring plate.
 * **Pendulum → Wall Slam:** place a pendulum within 2 tiles of a wall, facing it.
 
-## 6. Combos and scoring
+## 7. Combos and scoring
 
 * Each intruder has its own chain. A hit within **3s** of the previous one extends it.
 * Damage multiplier: `1 + 0.25 × (hits so far)`, capped at ×3.
@@ -93,7 +129,7 @@ geometry is part of the trap set.
 * Kills add the intruder's base score and cogs (Thief 100 pts / 40⚙, Knight
   250 pts / 90⚙).
 
-## 7. Intruders
+## 8. Intruders
 
 | Type | HP | Speed | Knockback | Attack | Notes |
 |---|---|---|---|---|---|
@@ -108,7 +144,7 @@ and red glow, then strike. The windup is the player's cue to dash.
 bombs; can be launched into other intruders), and named story bosses with
 room-specific gimmicks.
 
-## 8. Setting and tone
+## 9. Setting and tone
 
 * **Brassmoor:** a gothic manor whose walls hide gears, pistons and counterweights.
   Candlelit stone, brass fittings, cold moonlight through high windows.
@@ -121,31 +157,34 @@ room-specific gimmicks.
 * Tone: dark and theatrical with a slapstick edge. Traps are Rube Goldberg
   contraptions, not gore.
 
-## 9. Progression (beyond the prototype)
+## 10. Progression (beyond the prototype)
 
-* **Chapters:** each is a night with 2–4 rooms connected by corridors. The Keeper
-  can run between rooms, dragging pursuers into different trap layouts.
+* **Chapters:** each is a night in a different wing of the manor, built on the
+  multi-room layout from v0.2 (2–4 rooms joined by passages).
 * **Workshop:** spend cogs and salvaged parts to unlock and upgrade traps
   (shorter reset, bigger zone, elemental variants such as steam and sparks).
 * **Room features:** fixed hazards per room (chandeliers, stairs, furnaces,
   bookcases that topple) that act as free combo links.
 * **Ratings:** per-room grades for combo length, variety and damage taken.
 
-## 10. Prototype scope (this repo, v0.1)
+## 11. Prototype scope (this repo, v0.2)
 
 Built and playable:
 
-* One 9×9-tile room with a door, candle lighting and shadows.
-* Third-person Keeper with an over-the-shoulder camera and a dash.
+* Three rooms and two passages (see §4), with per-area lighting, two spawn doors,
+  a minimap and a current-room label.
+* Third-person Keeper with an over-the-shoulder camera that tilts over walls
+  instead of clipping, plus a dash.
 * Five traps with placement ghost, zone preview, rotation, selling and status lamps.
-* Two intruder types with physics knockback, wall slams, hard landings, restraint and stun.
+* Two intruder types with pathfinding, physics knockback, wall slams, hard
+  landings, restraint and stun.
 * Per-intruder combo chains with on-screen chain readout and scoring.
-* Three waves, then victory or defeat screens.
+* Four waves, then victory or defeat screens.
 * Synthesized sound effects (no audio assets).
 
-Not yet: multiple rooms, workshop/upgrades, story, saving, gamepad, real models.
+Not yet: room hazards, new intruder types, workshop/upgrades, story, saving, gamepad, real models.
 
-## 11. Technical notes
+## 12. Technical notes
 
 * **Stack:** Three.js + Vite, plain ES modules, no other runtime dependencies.
 * **Fixed timestep:** simulation runs at 60 Hz with up to 12 sub-steps per
@@ -157,16 +196,24 @@ Not yet: multiple rooms, workshop/upgrades, story, saving, gamepad, real models.
   * `src/intruder.js`: AI state machine and physics
   * `src/game.js`: phase flow, placement, triggering and callbacks
   * `src/player.js`: Keeper movement and third-person camera
-  * `src/room.js`, `src/hud.js`, `src/audio.js`, `src/characters.js`
+  * `src/level.js`: the tile map, wall collision, line of sight and pathfinding (pure logic)
+  * `src/room.js`: renders the level (floors, generated walls, doors, lights)
+  * `src/hud.js`, `src/audio.js`, `src/characters.js`
 * **Tests:** `npm test` runs headless simulations. Traps and intruders run without
   a renderer, so combo geometry is regression-tested.
 
-## 12. Open questions
+## 13. Decisions and open questions
 
-1. Final title and protagonist name. "Brassmoor" and "Wren" are placeholders.
-2. Should traps be placeable mid-wave at a premium, or is the setup/wave split
-   core to the feel?
-3. Category triggering (fire every armed trap of a layer) vs. per-trap binding:
-   is the current scheme expressive enough once rooms hold 6+ traps?
-4. How much story: light framing between nights, or a branching narrative?
-5. Art direction for real assets: stylized low-poly, or painterly textures on simple shapes?
+Decided:
+
+* **Names:** the manor is **Brassmoor** and the Keeper is **Wren**.
+* **Triggering:** traps fire by layer (`1` floor, `2` wall, `3` ceiling), and
+  only armed traps with a target fire.
+* **Placement:** setup phase only. Waves are purely about kiting and timing.
+
+Open:
+
+1. How much story: light framing between nights, or a branching narrative?
+2. Art direction for real assets: stylized low-poly, or painterly textures on simple shapes?
+3. Room hazards (furnace in the Boiler Room, toppling statues in the Gallery):
+   fixed per room, or placeable like traps?

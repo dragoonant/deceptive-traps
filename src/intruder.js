@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { INTRUDERS, GRAVITY, ENV } from './config.js';
-import { HALF_W, HALF_D } from './room.js';
+import { collideCircle, worldToTile, isWalkable } from './level.js';
 import { buildHumanoid } from './characters.js';
 import { ComboTracker } from './combo.js';
 
@@ -21,7 +21,8 @@ export class Intruder {
     scene.add(this.mesh);
     this.scene = scene;
 
-    this.pos = spawnPos.clone();
+    this.pos = new THREE.Vector3(spawnPos.x, 0, spawnPos.z);
+    this.lastSafe = this.pos.clone();
     this.vel = new THREE.Vector3();
     this.facing = 0;
     this.hp = this.def.hp;
@@ -113,16 +114,21 @@ export class Intruder {
     const toPlayer = new THREE.Vector3(player.pos.x - this.pos.x, 0, player.pos.z - this.pos.z);
     const dist = toPlayer.length();
     if (dist > 0.001) toPlayer.divideScalar(dist);
+    // Where to walk: straight at the Keeper if visible, else along the flow field.
+    const goal = game.chaseTarget ? game.chaseTarget(this) : player.pos;
+    const toGoal = new THREE.Vector3(goal.x - this.pos.x, 0, goal.z - this.pos.z);
+    if (toGoal.lengthSq() > 1e-6) toGoal.normalize();
+    const seesPlayer = goal === player.pos;
 
     switch (this.state) {
       case 'walk': {
         if (!player.dead) {
-          this.faceToward(toPlayer, dt, 8);
-          const desired = toPlayer.clone().multiplyScalar(this.def.speed);
-          if (dist < this.def.attackRange * 0.85) desired.set(0, 0, 0);
+          this.faceToward(toGoal, dt, 8);
+          const desired = toGoal.clone().multiplyScalar(this.def.speed);
+          if (seesPlayer && dist < this.def.attackRange * 0.85) desired.set(0, 0, 0);
           this.vel.x += (desired.x - this.vel.x) * Math.min(1, dt * 8);
           this.vel.z += (desired.z - this.vel.z) * Math.min(1, dt * 8);
-          if (dist < this.def.attackRange && this.attackCooldown === 0) {
+          if (seesPlayer && dist < this.def.attackRange && this.attackCooldown === 0) {
             this.setState('windup', this.def.windup);
           }
         } else {
@@ -199,30 +205,28 @@ export class Intruder {
       }
     }
 
-    // Walls: clamp, and fast impacts count as a Wall Slam.
+    // Walls: push out, and fast impacts count as a Wall Slam.
     const r = this.def.radius * this.def.scale;
-    const bounds = [
-      ['x', -HALF_W + r, 1],
-      ['x', HALF_W - r, -1],
-      ['z', -HALF_D + r, 1],
-      ['z', HALF_D - r, -1],
-    ];
-    for (const [axis, limit, sign] of bounds) {
-      const past = sign > 0 ? this.pos[axis] < limit : this.pos[axis] > limit;
-      if (past) {
-        this.pos[axis] = limit;
-        const into = -sign * this.vel[axis];
-        if (into > 0) {
-          if (envHits && into > ENV.wallSlam.minSpeed && this.wallSlamLock === 0 && this.alive) {
-            this.wallSlamLock = 0.3;
-            this.vel[axis] = sign * into * 0.25;
-            this.takeHit(game, ENV.wallSlam.name, ENV.wallSlam.damage);
-          } else {
-            this.vel[axis] = 0;
-          }
-        }
+    const t = worldToTile(this.pos.x, this.pos.z);
+    if (!isWalkable(t.i, t.j)) {
+      // Tunnelled into stone at high speed: put it back and kill the velocity.
+      this.pos.x = this.lastSafe.x;
+      this.pos.z = this.lastSafe.z;
+      this.vel.x = this.vel.z = 0;
+    }
+    for (const hit of collideCircle(this.pos, this.vel, r)) {
+      if (hit.into <= 0) continue;
+      if (envHits && hit.into > ENV.wallSlam.minSpeed && this.wallSlamLock === 0 && this.alive) {
+        this.wallSlamLock = 0.3;
+        this.vel.x += hit.nx * hit.into * 1.25; // small bounce off the wall
+        this.vel.z += hit.nz * hit.into * 1.25;
+        this.takeHit(game, ENV.wallSlam.name, ENV.wallSlam.damage);
+      } else {
+        this.vel.x += hit.nx * hit.into;
+        this.vel.z += hit.nz * hit.into;
       }
     }
+    this.lastSafe.copy(this.pos);
   }
 
   animate(dt) {

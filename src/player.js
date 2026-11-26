@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PLAYER, WALL_H } from './config.js';
-import { HALF_W, HALF_D } from './room.js';
+import { collideCircle, lastFreePoint, tileCenter, PLAYER_START } from './level.js';
 import { buildHumanoid } from './characters.js';
 
 // The Keeper: cannot fight, only move, dash, and work the house's mechanisms.
@@ -10,7 +10,8 @@ export class Player {
     this.mesh = h.root;
     this.parts = h;
     scene.add(this.mesh);
-    this.pos = new THREE.Vector3(0, 0, 4);
+    this.pos = new THREE.Vector3();
+    this.resetPos();
     this.vel = new THREE.Vector3();
     this.facing = Math.PI; // radians around Y; 0 = +Z
     this.hp = PLAYER.maxHp;
@@ -22,8 +23,13 @@ export class Player {
     this.dead = false;
   }
 
+  resetPos() {
+    const c = tileCenter(PLAYER_START.i, PLAYER_START.j);
+    this.pos.set(c.x, 0, c.z);
+  }
+
   reset() {
-    this.pos.set(0, 0, 4);
+    this.resetPos();
     this.vel.set(0, 0, 0);
     this.hp = PLAYER.maxHp;
     this.dead = false;
@@ -90,9 +96,7 @@ export class Player {
     }
 
     this.pos.addScaledVector(this.vel, dt);
-    const r = PLAYER.radius;
-    this.pos.x = THREE.MathUtils.clamp(this.pos.x, -HALF_W + r, HALF_W - r);
-    this.pos.z = THREE.MathUtils.clamp(this.pos.z, -HALF_D + r, HALF_D - r);
+    collideCircle(this.pos, this.vel, PLAYER.radius);
 
     // Face movement direction smoothly.
     const speed = Math.hypot(this.vel.x, this.vel.z);
@@ -125,7 +129,16 @@ export class ThirdPersonCamera {
     this.pitch = 0.42;
     this.distance = 7;
     this.shoulder = 1.0;
+    this.snap = true; // first frame jumps straight into place
     this.target = new THREE.Vector3();
+  }
+
+  offset(pitch) {
+    return new THREE.Vector3(
+      Math.sin(this.yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      Math.cos(this.yaw) * Math.cos(pitch)
+    ).multiplyScalar(this.distance);
   }
 
   // Rotate from mouse/keys. Called once per rendered frame, before simulation.
@@ -143,18 +156,29 @@ export class ThirdPersonCamera {
     // Over-the-shoulder: aim point sits right of the Keeper so the crosshair isn't hidden.
     const sx = Math.cos(this.yaw) * this.shoulder;
     const sz = -Math.sin(this.yaw) * this.shoulder;
-    this.target.lerp(new THREE.Vector3(playerPos.x + sx, 1.4, playerPos.z + sz), Math.min(1, dt * 12));
-    const off = new THREE.Vector3(
-      Math.sin(this.yaw) * Math.cos(this.pitch),
-      Math.sin(this.pitch),
-      Math.cos(this.yaw) * Math.cos(this.pitch)
-    ).multiplyScalar(this.distance);
-    const pos = this.target.clone().add(off);
-    const m = 0.3;
-    pos.x = THREE.MathUtils.clamp(pos.x, -HALF_W + m, HALF_W - m);
-    pos.z = THREE.MathUtils.clamp(pos.z, -HALF_D + m, HALF_D - m);
-    pos.y = THREE.MathUtils.clamp(pos.y, 0.6, WALL_H + 2.5);
-    this.camera.position.copy(pos);
+    // In a narrow corridor the shoulder point could sit inside stone; stop it at the wall.
+    const head = { x: playerPos.x, y: 1.4, z: playerPos.z };
+    const sh = lastFreePoint(head, { x: head.x + sx, y: 1.4, z: head.z + sz }, Infinity, 0.05);
+    const aim = new THREE.Vector3(sh.point.x, 1.4, sh.point.z);
+    if (sh.blocked) aim.lerp(new THREE.Vector3(head.x, 1.4, head.z), 0.3);
+    this.target.lerp(aim, Math.min(1, dt * 12));
+    // If a wall blocks the view, tilt up over it before resorting to pulling in.
+    // Goes nearly top-down if needed, which is what clears a 1-tile corridor.
+    let best = null;
+    for (let pitch = this.pitch; pitch <= 1.5; pitch += 0.08) {
+      const want = this.target.clone().add(this.offset(pitch));
+      const hit = lastFreePoint(this.target, want, WALL_H + 0.1, 0.1);
+      if (!hit.blocked) {
+        best = want;
+        break;
+      }
+      if (!best) best = new THREE.Vector3(hit.point.x, hit.point.y, hit.point.z).lerp(this.target, 0.08);
+    }
+    best.y = THREE.MathUtils.clamp(best.y, 0.6, WALL_H + 3);
+    // Smooth so the auto-tilt doesn't snap.
+    const k = this.snap ? 1 : 1 - Math.exp(-dt * 10);
+    this.snap = false;
+    this.camera.position.lerp(best, k);
     this.camera.lookAt(this.target);
   }
 }

@@ -26,5 +26,10 @@ npm run build    # static build in dist/
    target. `Space` dashes through attacks.
 3. Chain hits within 3 seconds for damage multipliers and big score.
 
-Try this opener: a **Piston Ram** on the west wall, a **Gear Clamp** three tiles
+The manor has three rooms (Grand Foyer, Boiler Room, Gallery) joined by narrow
+passages, and intruders come in through two doors. Break line of sight and run
+to drag pursuers into a different trap layout.
+
+Try this opener: a **Piston Ram** on a Foyer wall, a **Gear Clamp** three tiles
 in front of it, and an **Iron Weight** above the clamp. Fire `2`, then `1`, then `3`.
+In a passage, a ram slams intruders straight into the opposite wall.

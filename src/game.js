@@ -1,6 +1,16 @@
 import * as THREE from 'three';
 import { TRAPS, TRAP_ORDER, CATEGORIES, WAVES, STARTING_COGS, SELL_REFUND, INTRUDERS, TILE } from './config.js';
-import { Room, tileCenter, worldToTile, inGrid, DOOR_TILE } from './room.js';
+import { Room } from './room.js';
+import {
+  tileCenter,
+  worldToTile,
+  isWalkable,
+  isDoorTile,
+  DOORS,
+  flowField,
+  nextStep,
+  lineOfSight,
+} from './level.js';
 import { Player, ThirdPersonCamera } from './player.js';
 import { Intruder } from './intruder.js';
 import { Trap, makeGhost, allowedDirs, dirAngle } from './traps.js';
@@ -89,10 +99,11 @@ export class Game {
     this.state = 'wave';
     this.setGhost(null);
     const w = WAVES[this.waveIndex];
-    this.spawnQueue = w.intruders.map((type, k) => ({ type, at: this.time + 0.5 + k * w.spacing }));
+    this.spawnQueue = w.intruders.map(([type, door], k) => ({ type, door, at: this.time + 0.5 + k * w.spacing }));
     this.endTimer = 0;
-    const names = w.intruders.map((t) => INTRUDERS[t].name);
-    this.hud.banner(`<b>Intruders!</b><br>${names.join(', ')}`, 2.5);
+    const doors = [...new Set(w.intruders.map(([, d]) => d))];
+    const names = w.intruders.map(([t]) => INTRUDERS[t].name);
+    this.hud.banner(`<b>Intruders!</b><br>${names.join(', ')}<br><small>from the ${doors.join(' and ')} door${doors.length > 1 ? 's' : ''}</small>`, 3);
   }
 
   aliveCount() {
@@ -142,9 +153,10 @@ export class Game {
   }
 
   canPlace(type, i, j) {
-    if (!inGrid(i, j)) return 'Aim at the floor';
+    if (!isWalkable(i, j)) return 'Aim at the floor';
+    if (isDoorTile(i, j)) return "Can't build in an entrance";
     const def = TRAPS[type];
-    if (allowedDirs(type, i, j).length === 0) return 'Rams must go on an edge tile';
+    if (allowedDirs(type, i, j).length === 0) return 'Rams must go next to a wall';
     if (this.trapAt(i, j, def.category)) return `A ${CATEGORIES[def.category].label.toLowerCase()} trap is already here`;
     if (def.cost > this.cogs) return 'Not enough cogs';
     return null;
@@ -222,7 +234,7 @@ export class Game {
     let tile = null;
     if (this.raycaster.ray.intersectPlane(this.floorPlane, hit)) {
       const t = worldToTile(hit.x, hit.z);
-      if (inGrid(t.i, t.j)) tile = t;
+      if (isWalkable(t.i, t.j)) tile = t;
     }
     this.target = tile;
 
@@ -316,12 +328,18 @@ export class Game {
       // Spawns.
       while (this.spawnQueue.length && this.spawnQueue[0].at <= this.time) {
         const s = this.spawnQueue.shift();
-        const p = tileCenter(DOOR_TILE.i, DOOR_TILE.j);
-        p.x += (Math.random() - 0.5) * 0.6;
-        this.intruders.push(new Intruder(this.scene, s.type, p));
+        const door = DOORS[s.door];
+        const p = tileCenter(door.i, door.j);
+        // Nudge sideways along the wall so simultaneous spawns don't overlap.
+        p.x += (Math.random() - 0.5) * 0.6 * Math.abs(door.side.z);
+        p.z += (Math.random() - 0.5) * 0.6 * Math.abs(door.side.x);
+        const n = new Intruder(this.scene, s.type, p);
+        n.facing = Math.atan2(-door.side.x, -door.side.z);
+        this.intruders.push(n);
       }
     }
 
+    this.updateFlow(dt);
     for (const t of this.traps) t.update(dt, this);
     for (const n of this.intruders) n.update(dt, this);
     this.separate();
@@ -349,6 +367,28 @@ export class Game {
       }
     }
 
+  }
+
+  // Where an intruder should walk: at the Keeper if in sight, else the next tile on the path.
+  chaseTarget(n) {
+    const P = this.player.pos;
+    if (lineOfSight(n.pos, P)) return P;
+    if (!this.flow) return P;
+    const t = worldToTile(n.pos.x, n.pos.z);
+    const next = nextStep(this.flow, t.i, t.j);
+    if (!next) return P;
+    const c = tileCenter(next.i, next.j);
+    return new THREE.Vector3(c.x, 0, c.z);
+  }
+
+  updateFlow(dt) {
+    const t = worldToTile(this.player.pos.x, this.player.pos.z);
+    this.flowTimer = (this.flowTimer ?? 0) - dt;
+    if (!this.flow || this.flowTimer <= 0 || t.i !== this.flowTile?.i || t.j !== this.flowTile?.j) {
+      this.flow = flowField(t);
+      this.flowTile = t;
+      this.flowTimer = 0.5;
+    }
   }
 
   // Keep bodies from overlapping each other and the player.
