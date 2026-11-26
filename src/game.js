@@ -59,9 +59,46 @@ export class Game {
       this.zoneMeshes.push(m);
     }
 
+    // Brightness presets (tone-mapping exposure). Remembered per browser.
+    this.brightnessLevels = [
+      { name: 'Normal', exposure: 1.15 },
+      { name: 'Bright', exposure: 1.6 },
+      { name: 'Max', exposure: 2.2 },
+    ];
+    let saved = 0;
+    try {
+      saved = Number(localStorage.getItem('brassmoor.brightness')) || 0;
+    } catch {
+      saved = 0;
+    }
+    this.setBrightness(saved);
+    const btn = document.getElementById('brightness');
+    btn?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.cycleBrightness();
+    });
+
     this.state = 'title';
     this.hud.setScreen('title');
     this.resetRun();
+  }
+
+  setBrightness(index) {
+    const i = ((index % this.brightnessLevels.length) + this.brightnessLevels.length) % this.brightnessLevels.length;
+    this.brightness = i;
+    this.renderer.toneMappingExposure = this.brightnessLevels[i].exposure;
+    const btn = document.getElementById('brightness');
+    if (btn) btn.textContent = `☀ ${this.brightnessLevels[i].name}`;
+    try {
+      localStorage.setItem('brassmoor.brightness', String(i));
+    } catch {
+      /* storage unavailable (private mode): setting just won't persist */
+    }
+  }
+
+  cycleBrightness() {
+    this.setBrightness(this.brightness + 1);
   }
 
   // ---------- Run / wave flow ----------
@@ -323,6 +360,8 @@ export class Game {
         this.startRun();
       }
     }
+
+    if (input.wasPressed('b')) this.cycleBrightness();
 
     if (this.state === 'setup' || this.state === 'wave') {
       this.player.update(dt, input, this.cam.yaw);

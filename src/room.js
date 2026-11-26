@@ -9,14 +9,14 @@ function stoneTexture(seed) {
   const g = c.getContext('2d');
   let s = seed;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  g.fillStyle = '#4a4440';
+  g.fillStyle = '#6e655d';
   g.fillRect(0, 0, 128, 128);
   for (let n = 0; n < 900; n++) {
-    const v = 55 + Math.floor(rnd() * 30);
+    const v = 90 + Math.floor(rnd() * 35);
     g.fillStyle = `rgba(${v},${v - 4},${v - 8},0.5)`;
     g.fillRect(rnd() * 128, rnd() * 128, 2 + rnd() * 3, 2 + rnd() * 3);
   }
-  g.strokeStyle = 'rgba(20,16,14,0.9)';
+  g.strokeStyle = 'rgba(40,32,28,0.9)';
   g.lineWidth = 4;
   g.strokeRect(0, 0, 128, 128);
   const tex = new THREE.CanvasTexture(c);
@@ -29,7 +29,7 @@ function brickTexture() {
   c.width = 256;
   c.height = 128;
   const g = c.getContext('2d');
-  g.fillStyle = '#231d1b';
+  g.fillStyle = '#3d332e';
   g.fillRect(0, 0, 256, 128);
   const bh = 32;
   let s = 3;
@@ -37,7 +37,7 @@ function brickTexture() {
   for (let row = 0; row < 4; row++) {
     const off = row % 2 ? 32 : 0;
     for (let x = -64; x < 256; x += 64) {
-      const v = 70 + Math.floor(rnd() * 25);
+      const v = 100 + Math.floor(rnd() * 28);
       g.fillStyle = `rgb(${v},${v - 12},${v - 18})`;
       g.fillRect(x + off + 2, row * bh + 2, 60, bh - 4);
     }
@@ -132,8 +132,9 @@ export class Room {
     }
 
     // Lighting: cold moonlight overall, warm or cool lamps per area.
-    scene.add(new THREE.HemisphereLight(0x4a5a80, 0x1a100a, 0.55));
-    const moon = new THREE.DirectionalLight(0x9fb4ff, 0.9);
+    scene.add(new THREE.HemisphereLight(0x8090c0, 0x4a3a2e, 1.1));
+    scene.add(new THREE.AmbientLight(0xffe8d0, 0.2));
+    const moon = new THREE.DirectionalLight(0xb4c4ff, 1.3);
     moon.position.set(8, 22, 6);
     moon.castShadow = true;
     moon.shadow.mapSize.set(4096, 2048);
@@ -158,8 +159,8 @@ export class Room {
       const midJ = tiles.reduce((s, p) => s + p.j, 0) / tiles.length;
       for (const si of spots) {
         const p = tileCenter(si, midJ);
-        const base = small ? 8 : 16;
-        const light = new THREE.PointLight(area.light, base, small ? 7 : 13, 1.6);
+        const base = small ? 18 : 36;
+        const light = new THREE.PointLight(area.light, base, small ? 11 : 20, 1.2);
         light.position.set(p.x, 3.4, p.z);
         scene.add(light);
         const lamp = new THREE.Mesh(

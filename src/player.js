@@ -6,7 +6,7 @@ import { buildHumanoid } from './characters.js';
 // The Keeper: cannot fight, only move, dash, and work the house's mechanisms.
 export class Player {
   constructor(scene) {
-    const h = buildHumanoid({ body: 0x3b2a5c, accent: 0xd4a84a, hood: true });
+    const h = buildHumanoid({ body: 0x6a4aa0, accent: 0xe0b44e, hood: true });
     this.mesh = h.root;
     this.parts = h;
     scene.add(this.mesh);
