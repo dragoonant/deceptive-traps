@@ -126,7 +126,7 @@ export class Hud {
     $('score').textContent = game.score;
     $('wave').textContent = `Wave ${Math.min(game.waveIndex + 1, game.waveCount)} / ${game.waveCount}`;
     const phase = $('phase');
-    if (game.state === 'setup') phase.textContent = 'Setup: place traps, then press Enter';
+    if (game.state === 'setup') phase.textContent = game.touchMode ? 'Setup: place traps, then Start ▶' : 'Setup: place traps, then press Enter';
     else if (game.state === 'wave') phase.textContent = `Intruders: ${game.aliveCount()} remaining`;
     else phase.textContent = '';
     $('room-name').textContent = areaNameAt(p.pos.x, p.pos.z);
@@ -151,13 +151,15 @@ export class Hud {
     $('build-info').classList.toggle('show', setup);
     if (setup) {
       const d = TRAPS[game.selectedType];
-      $('build-info').innerHTML = `<b>${d.name}</b> (${d.cost}⚙): ${d.desc}<br><span class="dim">${
+      $('build-info').innerHTML = `<b>${d.name}</b> (${d.cost}⚙)<span class="desc">: ${d.desc}</span><br><span class="dim">${
         game.placementHint
       }</span>`;
     }
 
-    $('lock-hint').classList.toggle('show', !game.input.locked && (game.state === 'setup' || game.state === 'wave'));
-    $('crosshair').classList.toggle('show', setup);
+    const playing = game.state === 'setup' || game.state === 'wave';
+    $('lock-hint').classList.toggle('show', !game.touchMode && !game.input.locked && playing);
+    // On touch the crosshair only shows until a tile has been tapped.
+    $('crosshair').classList.toggle('show', setup && !(game.touchMode && game.touchTarget));
 
     // Banner + combo fade.
     this.bannerTimer -= game.dt;

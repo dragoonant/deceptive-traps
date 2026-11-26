@@ -66,11 +66,22 @@ export class Player {
     if (input.isDown('s') || input.isDown('ArrowDown')) mz += 1;
     if (input.isDown('a') || input.isDown('ArrowLeft')) mx -= 1;
     if (input.isDown('d') || input.isDown('ArrowRight')) mx += 1;
-    const len = Math.hypot(mx, mz);
-    const move = new THREE.Vector3();
+    let len = Math.hypot(mx, mz);
+    let throttle = 1;
     if (len > 0) {
       mx /= len;
       mz /= len;
+    } else if (input.joy.active && Math.hypot(input.joy.x, input.joy.y) > 0.15) {
+      // Virtual stick: analog direction, speed scales with how far it's pushed.
+      mx = input.joy.x;
+      mz = input.joy.y;
+      len = Math.hypot(mx, mz);
+      throttle = Math.min(1, len);
+      mx /= len;
+      mz /= len;
+    }
+    const move = new THREE.Vector3();
+    if (len > 0) {
       // Forward is the direction the camera looks (camera sits at +yaw behind).
       const sin = Math.sin(camYaw);
       const cos = Math.cos(camYaw);
@@ -92,7 +103,7 @@ export class Player {
     if (this.dashTimer > 0) {
       this.dashTimer -= dt;
     } else {
-      this.vel.copy(move).multiplyScalar(PLAYER.speed);
+      this.vel.copy(move).multiplyScalar(PLAYER.speed * throttle);
     }
 
     this.pos.addScaledVector(this.vel, dt);

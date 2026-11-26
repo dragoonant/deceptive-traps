@@ -146,6 +146,7 @@ export class Room {
     sc.far = 50;
     moon.shadow.bias = -0.0005;
     scene.add(moon);
+    this.moon = moon;
 
     for (const [key, area] of Object.entries(AREAS)) {
       const tiles = [];

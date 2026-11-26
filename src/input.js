@@ -8,6 +8,8 @@ export class Input {
     this.mouseDY = 0;
     this.clicks = []; // button numbers clicked this frame
     this.locked = false;
+    this.joy = { x: 0, y: 0, active: false }; // virtual stick, set by TouchControls
+    this.touchMode = false;
 
     window.addEventListener('keydown', (e) => {
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -22,6 +24,7 @@ export class Input {
     window.addEventListener('blur', () => this.down.clear());
 
     canvas.addEventListener('mousedown', (e) => {
+      if (this.touchMode) return; // touch UI drives clicks itself
       // The first click only captures the mouse; it must not place a trap.
       if (!this.locked) {
         canvas.requestPointerLock?.();
@@ -39,6 +42,11 @@ export class Input {
         this.mouseDY += e.movementY;
       }
     });
+  }
+
+  // Simulate a key press from an on-screen button.
+  press(k) {
+    this.pressed.add(k);
   }
 
   isDown(k) {
