@@ -81,6 +81,19 @@ body {
 #cogs {
   color: var(--brass);
 }
+#brightness {
+  margin-top: 6px;
+  width: 100%;
+  pointer-events: auto;
+  touch-action: none;
+  background: rgba(212, 168, 74, 0.12);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  color: var(--ink);
+  font: 12px system-ui, sans-serif;
+  padding: 4px 6px;
+  cursor: pointer;
+}
 
 #wave-box {
   position: absolute;
@@ -329,17 +342,17 @@ body {
 }
 
 #vignette {
-  box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.85);
+  box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.5);
 }
 #vignette.hit {
   animation: hurt 0.4s ease-out;
 }
 @keyframes hurt {
   from {
-    box-shadow: inset 0 0 200px rgba(200, 0, 0, 0.9);
+    box-shadow: inset 0 0 200px rgba(220, 0, 0, 0.8);
   }
   to {
-    box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.85);
+    box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.5);
   }
 }
 
