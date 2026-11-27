@@ -1,5 +1,7 @@
 # Brassmoor: Deceptive Traps (design doc)
 
+> Story, cast and chapter outline: see [`STORY.md`](STORY.md).
+>
 > A trap-defense action game in the tradition of the PlayStation-era
 > "you are the house, not the hero" games. Everything here (setting, characters,
 > traps, art) is original. The genre is the inspiration. No names, characters,
@@ -90,6 +92,8 @@ throws an intruder from one mechanism into the next is the point of the game.
 | R | Rotate trap | — |
 | Left / right click | Place / sell | — |
 | Enter | Start wave | — |
+| F | Read a nearby note | — |
+| B | Brightness | Brightness |
 
 **Touch (phones and tablets, enabled automatically):** floating joystick under
 the left thumb; right-thumb drag turns the camera; a quick tap on the floor
@@ -174,22 +178,25 @@ room-specific gimmicks.
   bookcases that topple) that act as free combo links.
 * **Ratings:** per-room grades for combo length, variety and damage taken.
 
-## 11. Prototype scope (this repo, v0.2)
+## 11. Prototype scope (this repo, v0.3: Night 1 slice)
 
 Built and playable:
 
-* Three rooms and two passages (see §4), with per-area lighting, two spawn doors,
-  a minimap and a current-room label.
-* Third-person Keeper with an over-the-shoulder camera that tilts over walls
-  instead of clipping, plus a dash.
-* Five traps with placement ghost, zone preview, rotation, selling and status lamps.
-* Two intruder types with pathfinding, physics knockback, wall slams, hard
-  landings, restraint and stun.
-* Per-intruder combo chains with on-screen chain readout and scoring.
-* Four waves, then victory or defeat screens.
-* Synthesized sound effects (no audio assets).
+* **Night 1, "The First Night":** an illustrated intro, an opening scene, four
+  scripted waves (Rook's crew, then Jessamy Rook, then Sir Oswin Garrick), a
+  dawn cutscene, a closing scene and an end-of-night card.
+* **Story presentation:** comic-panel cutscenes and dialogue portraits, both
+  rendered from the game's own 3D models; three readable notes on the walls;
+  short shouted lines from ordinary intruders.
+* **Graphics:** a stylized low-poly character rig (faces, legs, outfits, unique
+  looks for named intruders); furnished rooms (pillars, rug, chandelier, clock,
+  paintings, boilers, a glowing furnace, statues, turning wall gears); solid
+  furniture that blocks movement and sight and counts for Wall Slams; gear
+  detail on traps; particles (sparks, dust, embers, steam); hit-stop.
+* Everything from v0.2: three rooms, pathfinding, five traps, combos, touch
+  controls, brightness setting.
 
-Not yet: room hazards, new intruder types, workshop/upgrades, story, saving, gamepad, real models.
+Not yet: Nights 2–6, new intruder types, workshop/upgrades, saving, gamepad, voice.
 
 ## 12. Technical notes
 
@@ -205,7 +212,12 @@ Not yet: room hazards, new intruder types, workshop/upgrades, story, saving, gam
   * `src/player.js`: Keeper movement and third-person camera
   * `src/level.js`: the tile map, wall collision, line of sight and pathfinding (pure logic)
   * `src/room.js`: renders the level (floors, generated walls, doors, lights)
-  * `src/hud.js`, `src/audio.js`, `src/characters.js`
+  * `src/characters.js`: the low-poly character rig and looks
+  * `src/props.js`: furniture, obstacles and wall decoration
+  * `src/fx.js`: pooled particle effects
+  * `src/story/`: night scripts (`night1.js`), dialogue, cutscenes and their
+    3D tableaux, portraits, notes, barks, and the offscreen `studio.js` renderer
+  * `src/hud.js`, `src/audio.js`, `src/touch.js`
 * **Tests:** `npm test` runs headless simulations. Traps and intruders run without
   a renderer, so combo geometry is regression-tested.
 
@@ -217,10 +229,12 @@ Decided:
 * **Triggering:** traps fire by layer (`1` floor, `2` wall, `3` ceiling), and
   only armed traps with a target fire.
 * **Placement:** setup phase only. Waves are purely about kiting and timing.
+* **Art direction:** stylized low-poly, built in code.
+* **Story:** a chapter story over six nights with one ending (see `STORY.md`),
+  told through dialogue with portraits, notes in the world and illustrated
+  cutscenes.
 
 Open:
 
-1. How much story: light framing between nights, or a branching narrative?
-2. Art direction for real assets: stylized low-poly, or painterly textures on simple shapes?
-3. Room hazards (furnace in the Boiler Room, toppling statues in the Gallery):
+1. Room hazards (furnace in the Boiler Room, toppling statues in the Gallery):
    fixed per room, or placeable like traps?

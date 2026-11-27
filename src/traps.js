@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TRAPS, TILE, WALL_H } from './config.js';
 import { tileCenter, worldToTile, isWalkable, inwardDirs } from './level.js';
+import { makeGear } from './props.js';
 
 const DIRS = [
   { x: 0, z: 1 },
@@ -50,13 +51,17 @@ function buildSpring(def) {
   const a = arrow(0xf0e6c8);
   plate.add(a);
   a.position.y = 0.04;
-  return { group: g, parts: { plate } };
+  const gear = makeGear(0.28, 9, 0.08);
+  gear.rotation.x = -Math.PI / 2;
+  gear.position.set(-TILE * 0.33, 0.1, -TILE * 0.33);
+  g.add(gear);
+  return { group: g, parts: { plate, gears: [gear] } };
 }
 
 function buildClamp(def) {
   const g = new THREE.Group();
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.08, 6, 24), mat(def.color));
-  ring.rotation.x = Math.PI / 2;
+  const ring = makeGear(0.68, 14, 0.1, mat(def.color));
+  ring.rotation.x = -Math.PI / 2;
   ring.position.y = 0.06;
   g.add(ring);
   const jaws = [];
@@ -71,7 +76,7 @@ function buildClamp(def) {
     g.add(pivot);
     jaws.push(pivot);
   }
-  return { group: g, parts: { jaws } };
+  return { group: g, parts: { jaws, gears: [ring] } };
 }
 
 function buildRam(def) {
@@ -91,7 +96,15 @@ function buildRam(def) {
   g.add(piston);
   const a = arrow(0xf0e6c8);
   g.add(a);
-  return { group: g, parts: { piston, restZ: piston.position.z } };
+  const gears = [];
+  for (const sx of [-1, 1]) {
+    const gear = makeGear(0.32, 9, 0.08);
+    gear.rotation.y = Math.PI / 2;
+    gear.position.set(sx * 0.6, 0.9, -TILE / 2 + 0.25);
+    g.add(gear);
+    gears.push(gear);
+  }
+  return { group: g, parts: { piston, restZ: piston.position.z, gears } };
 }
 
 function buildPendulum(def) {
@@ -114,7 +127,11 @@ function buildPendulum(def) {
   pivot.rotation.x = 1.1; // resting, pulled back toward -Z
   const a = arrow(0xf0e6c8);
   g.add(a);
-  return { group: g, parts: { pivot } };
+  const gear = makeGear(0.4, 10, 0.1);
+  gear.rotation.y = Math.PI / 2;
+  gear.position.set(0.12, WALL_H - 0.3, 0);
+  g.add(gear);
+  return { group: g, parts: { pivot, gears: [gear] } };
 }
 
 function buildWeight(def) {
@@ -139,7 +156,10 @@ function buildWeight(def) {
   mark.rotation.x = -Math.PI / 2;
   mark.position.y = 0.02;
   g.add(mark);
-  return { group: g, parts: { block, chain, restY: WALL_H - 1.1 } };
+  const pulley = makeGear(0.35, 10, 0.1);
+  pulley.position.set(0, WALL_H + 0.1, 0);
+  g.add(pulley);
+  return { group: g, parts: { block, chain, restY: WALL_H - 1.1, gears: [pulley] } };
 }
 
 const BUILDERS = {
@@ -280,7 +300,12 @@ export class Trap {
           break;
       }
     }
-    if (this.type === 'weight') game.shake(0.35);
+    if (this.type === 'weight') {
+      game.shake(0.35);
+      game.fx?.dust(center, 20, 1.3);
+    }
+    if (this.type === 'spring') game.fx?.dust(center, 8, 0.6);
+    if (this.type === 'ram') game.fx?.sparks({ x: center.x + this.dir.x * 1.5, y: 0.9, z: center.z + this.dir.z * 1.5 }, 8, 0xd0d8ff, 4);
   }
 
   knockVec() {
@@ -336,6 +361,12 @@ export class Trap {
       if (this.type === 'clamp') for (const j of p.jaws) j.rotation.x = -0.9 + r * 0.9;
       if (this.type === 'pendulum') p.pivot.rotation.x = -1.1 + r * 2.2;
       if (this.type === 'weight') p.block.position.y = p.restY * Math.min(1, Math.max(0, (r - 0.2) / 0.8));
+    }
+
+    // Gears whirr while the trap resets and tick over slowly when idle.
+    if (p.gears) {
+      const spin = this.firing ? 14 : this.cooldown > 0 ? 6 : 0.4;
+      for (const g of p.gears) g.rotation.z += spin * dt;
     }
 
     let color = 0xffaa00;

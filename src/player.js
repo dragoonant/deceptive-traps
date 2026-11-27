@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { PLAYER, WALL_H } from './config.js';
 import { collideCircle, lastFreePoint, tileCenter, PLAYER_START } from './level.js';
-import { buildHumanoid } from './characters.js';
+import { buildHumanoid, animateWalk } from './characters.js';
 
 // The Keeper: cannot fight, only move, dash, and work the house's mechanisms.
 export class Player {
   constructor(scene) {
-    const h = buildHumanoid({ body: 0x6a4aa0, accent: 0xe0b44e, hood: true });
+    const h = buildHumanoid('wren');
     this.mesh = h.root;
     this.parts = h;
     scene.add(this.mesh);
@@ -120,10 +120,7 @@ export class Player {
 
     // Walk cycle.
     this.walkPhase += dt * speed * 2.2;
-    const swing = speed > 0.1 ? Math.sin(this.walkPhase) * 0.6 : 0;
-    this.parts.arms[0].rotation.x = swing;
-    this.parts.arms[1].rotation.x = -swing;
-    this.parts.rig.position.y = speed > 0.1 ? Math.abs(Math.sin(this.walkPhase)) * 0.06 : 0;
+    animateWalk(this.parts, this.walkPhase, speed > 0.1);
 
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.facing;

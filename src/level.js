@@ -30,6 +30,20 @@ export const DOORS = {
   east: { i: 26, j: 4, side: { x: 1, z: 0 } },
 };
 
+// Solid furniture inside rooms. These tiles keep their area (for floors and names)
+// but block movement and sight like stone, so they also count for Wall Slams.
+// Rendered by props.js instead of as brick walls.
+export const OBSTACLES = [
+  { i: 1, j: 1, type: 'boiler' },
+  { i: 1, j: 7, type: 'boiler' },
+  { i: 0, j: 4, type: 'furnace' },
+  { i: 11, j: 6, type: 'pillar' },
+  { i: 15, j: 6, type: 'pillar' },
+  { i: 23, j: 2, type: 'statue' },
+  { i: 23, j: 6, type: 'statue' },
+];
+export const OBSTACLE_H = 3.2; // the camera may pass above furniture
+
 export const W = MAP[0].length;
 export const D = MAP.length;
 export const HALF_W = (W * TILE) / 2;
@@ -49,8 +63,15 @@ export function areaAt(i, j) {
   return c === '.' ? null : c;
 }
 
+const obstacleIndex = new Map(OBSTACLES.map((o) => [o.i + o.j * W, o]));
+
+export function obstacleAt(i, j) {
+  if (i < 0 || j < 0 || i >= W || j >= D) return null;
+  return obstacleIndex.get(i + j * W) ?? null;
+}
+
 export function isWalkable(i, j) {
-  return areaAt(i, j) !== null;
+  return areaAt(i, j) !== null && !obstacleAt(i, j);
 }
 
 export function isDoorTile(i, j) {
@@ -88,6 +109,7 @@ export function wallSegments() {
       if (!isWalkable(i, j)) continue;
       for (const s of SIDES) {
         if (isWalkable(i + s.x, j + s.z)) continue;
+        if (obstacleAt(i + s.x, j + s.z)) continue; // furniture, not a wall
         const door = Object.values(DOORS).find((d) => d.i === i && d.j === j && d.side.x === s.x && d.side.z === s.z);
         out.push({ i, j, side: s, door: !!door });
       }
@@ -151,7 +173,8 @@ export function lastFreePoint(a, b, wallH = Infinity, step = 0.2) {
     const t = k / n;
     const p = { x: a.x + dx * t, y: (a.y ?? 0) + dy * t, z: a.z + dz * t };
     const tile = worldToTile(p.x, p.z);
-    if (p.y < wallH && !isWalkable(tile.i, tile.j)) return { point: last, blocked: true };
+    const limit = obstacleAt(tile.i, tile.j) ? Math.min(wallH, OBSTACLE_H) : wallH;
+    if (p.y < limit && !isWalkable(tile.i, tile.j)) return { point: last, blocked: true };
     last = p;
   }
   return { point: last, blocked: false };

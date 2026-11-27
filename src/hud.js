@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TRAPS, TRAP_ORDER, CATEGORIES, PLAYER } from './config.js';
-import { W, D, AREAS, DOORS, areaAt, areaNameAt, HALF_W, HALF_D } from './level.js';
+import { W, D, AREAS, DOORS, areaAt, obstacleAt, areaNameAt, HALF_W, HALF_D } from './level.js';
 
 const MINI = 9; // minimap pixels per tile
 
@@ -38,7 +38,9 @@ export class Hud {
         const a = areaAt(i, j);
         if (!a) continue;
         const col = AREAS[a].floor;
-        g.fillStyle = `rgba(${(col >> 16) & 255},${(col >> 8) & 255},${col & 255},0.28)`;
+        g.fillStyle = obstacleAt(i, j)
+          ? 'rgba(20,14,10,0.9)'
+          : `rgba(${(col >> 16) & 255},${(col >> 8) & 255},${col & 255},0.28)`;
         g.fillRect(i * MINI + 0.5, j * MINI + 0.5, MINI - 1, MINI - 1);
       }
     }
@@ -114,7 +116,12 @@ export class Hud {
   setScreen(name, data = {}) {
     for (const s of ['title', 'victory', 'defeat']) $(`screen-${s}`).classList.toggle('show', s === name);
     if (name === 'victory' || name === 'defeat') {
-      $(`${name}-stats`).innerHTML = `Score <b>${data.score}</b> · Kills <b>${data.kills}</b> · Best combo <b>${data.bestCombo}</b>`;
+      const notes = data.notes ? ` · Notes <b>${data.notes.read.size}/${data.notes.total}</b>` : '';
+      $(`${name}-stats`).innerHTML = `Score <b>${data.score}</b> · Intruders defeated <b>${data.kills}</b> · Best combo <b>${data.bestCombo}</b>${notes}`;
+    }
+    if (name === 'victory' && data.night?.next) {
+      $('next-title').textContent = data.night.next.title;
+      $('next-blurb').textContent = data.night.next.blurb;
     }
   }
 
@@ -130,6 +137,14 @@ export class Hud {
     else if (game.state === 'wave') phase.textContent = `Intruders: ${game.aliveCount()} remaining`;
     else phase.textContent = '';
     $('room-name').textContent = areaNameAt(p.pos.x, p.pos.z);
+    $('notes-count').textContent = `${game.notes.read.size}/${game.notes.total}`;
+    const rb = $('read-btn');
+    const canRead = game.state === 'setup' && !game.modal && game.nearNote;
+    rb.classList.toggle('show', !!canRead);
+    if (canRead) {
+      const unread = !game.notes.read.has(game.nearNote.def.id);
+      rb.innerHTML = `${game.touchMode ? '' : '<span class="key">F</span> '}Read: ${game.nearNote.def.title}${unread ? ' <i>new</i>' : ''}`;
+    }
     this.drawMinimap(game);
 
     const setup = game.state === 'setup';
@@ -156,7 +171,7 @@ export class Hud {
       }</span>`;
     }
 
-    const playing = game.state === 'setup' || game.state === 'wave';
+    const playing = (game.state === 'setup' || game.state === 'wave') && !game.modal;
     $('lock-hint').classList.toggle('show', !game.touchMode && !game.input.locked && playing);
     // On touch the crosshair only shows until a tile has been tapped.
     $('crosshair').classList.toggle('show', setup && !(game.touchMode && game.touchTarget));
@@ -194,6 +209,16 @@ export class Hud {
     v.classList.add('hit');
   }
 
+  // A short speech bubble above an intruder's head.
+  speech(intruder, text) {
+    const el = document.createElement('div');
+    el.className = 'floater speech';
+    el.textContent = text;
+    this.layer.appendChild(el);
+    const pos = intruder.pos.clone().add(new THREE.Vector3(0, 0.6 * intruder.def.scale, 0));
+    this.floaters.push({ el, pos, life: 2.4, follow: intruder, rise: 0 });
+  }
+
   floatText(worldPos, text, cls = '') {
     const el = document.createElement('div');
     el.className = `floater ${cls}`;
@@ -214,7 +239,11 @@ export class Hud {
   updateFloaters(dt) {
     this.floaters = this.floaters.filter((f) => {
       f.life -= dt;
-      f.pos.y += dt * 1.2;
+      if (f.follow) {
+        f.pos.set(f.follow.pos.x, f.follow.pos.y + 2.8 * f.follow.def.scale, f.follow.pos.z);
+      } else {
+        f.pos.y += dt * 1.2;
+      }
       if (f.life <= 0) {
         f.el.remove();
         return false;

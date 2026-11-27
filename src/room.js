@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { TILE, WALL_H } from './config.js';
 import { W, D, AREAS, areaAt, isWalkable, tileCenter, wallSegments, HALF_W, HALF_D } from './level.js';
+import { buildProps, updateProps } from './props.js';
 
 function stoneTexture(seed) {
   const c = document.createElement('canvas');
@@ -54,6 +55,7 @@ export class Room {
     this.scene = scene;
     this.candles = [];
     this.build();
+    this.props = buildProps(scene);
   }
 
   build() {
@@ -181,6 +183,9 @@ export class Room {
   }
 
   update(time) {
+    const dt = this.lastTime === undefined ? 0 : time - this.lastTime;
+    this.lastTime = time;
+    updateProps(this.props, time, dt);
     for (const c of this.candles) {
       c.light.intensity =
         c.base * (0.85 + 0.1 * Math.sin(time * 9 + c.phase) + 0.05 * Math.sin(time * 23 + c.phase * 2));

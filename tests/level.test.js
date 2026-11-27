@@ -49,7 +49,7 @@ test('walls block line of sight between rooms', () => {
   const foyer = tileCenter(13, 2);
   const boiler = tileCenter(3, 2);
   assert.equal(lineOfSight(foyer, boiler), false);
-  assert.equal(lineOfSight(tileCenter(10, 2), tileCenter(16, 6)), true);
+  assert.equal(lineOfSight(tileCenter(10, 2), tileCenter(16, 4)), true);
 });
 
 test('corridor tiles offer rams both side walls', () => {
@@ -71,4 +71,16 @@ test('collision keeps a body out of stone and reports impact speed', () => {
   assert.ok(pos.x >= c.x - 1 + 0.4 - 1e-9);
   const t = worldToTile(pos.x, pos.z);
   assert.ok(isWalkable(t.i, t.j));
+});
+
+test('furniture blocks movement and sight but is not rendered as wall', async () => {
+  const { OBSTACLES, obstacleAt, wallSegments } = await import('../src/level.js');
+  for (const o of OBSTACLES) {
+    assert.equal(isWalkable(o.i, o.j), false);
+    assert.ok(obstacleAt(o.i, o.j));
+  }
+  // No brick wall slab faces a furniture tile.
+  for (const seg of wallSegments()) assert.equal(obstacleAt(seg.i + seg.side.x, seg.j + seg.side.z), null);
+  // A pillar hides the Keeper from an intruder directly behind it.
+  assert.equal(lineOfSight(tileCenter(11, 5), tileCenter(11, 7)), false);
 });

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TRAPS, TRAP_ORDER, CATEGORIES, WAVES, STARTING_COGS, SELL_REFUND, INTRUDERS, TILE } from './config.js';
+import { TRAPS, TRAP_ORDER, CATEGORIES, SELL_REFUND, INTRUDERS, TILE } from './config.js';
 import { Room } from './room.js';
 import {
   tileCenter,
@@ -16,6 +16,13 @@ import { Intruder } from './intruder.js';
 import { Trap, makeGhost, allowedDirs, dirAngle } from './traps.js';
 import { Hud } from './hud.js';
 import { Audio } from './audio.js';
+import { Fx } from './fx.js';
+import { OBSTACLES } from './level.js';
+import { NIGHT1 } from './story/night1.js';
+import { BARKS } from './story/barks.js';
+import { Dialogue } from './story/dialogue.js';
+import { Cutscene } from './story/cutscene.js';
+import { Notes } from './story/notes.js';
 
 export class Game {
   constructor({ renderer, scene, camera, input }) {
@@ -27,10 +34,30 @@ export class Game {
     this.player = new Player(scene);
     this.cam = new ThirdPersonCamera(camera);
     this.hud = new Hud(camera);
+    this.fx = new Fx(scene);
+    this.freeze = 0; // hit-stop: seconds of frozen simulation left
+    for (const o of OBSTACLES) {
+      const c = tileCenter(o.i, o.j);
+      if (o.type === 'furnace') this.fx.addEmbers({ x: c.x + 0.9, y: 0.9, z: c.z });
+      if (o.type === 'boiler') this.fx.addSteam({ x: c.x + 0.3, y: 3.2, z: c.z });
+    }
     this.audio = new Audio();
     this.raycaster = new THREE.Raycaster();
     this.floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    this.waveCount = WAVES.length;
+    this.night = NIGHT1;
+    this.waveCount = this.night.waves.length;
+    this.dialogue = new Dialogue();
+    this.cutscene = new Cutscene();
+    this.notes = new Notes(scene);
+    this.notes.load(this.night.notes);
+    this.introSeen = false;
+    this.nearNote = null;
+    const readBtn = document.getElementById('read-btn');
+    readBtn?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.readNearbyNote();
+    });
     this.time = 0;
     this.dt = 0;
     this.shakeAmt = 0;
@@ -110,7 +137,8 @@ export class Game {
     this.intruders = [];
     this.hud.clearWorld();
     this.player.reset();
-    this.cogs = STARTING_COGS;
+    this.cogs = this.night.startingCogs;
+    this.notes.read.clear();
     this.score = 0;
     this.kills = 0;
     this.bestCombo = 0;
@@ -119,9 +147,51 @@ export class Game {
     this.endTimer = 0;
   }
 
-  startRun() {
+  // The overlay that currently owns input (dialogue, cutscene, note), if any.
+  get modal() {
+    if (this.cutscene.active) return this.cutscene;
+    if (this.dialogue.active) return this.dialogue;
+    if (this.notes.active) return this.notes;
+    return null;
+  }
+
+  say(lines) {
+    return this.dialogue.play(lines);
+  }
+
+  // Begin the night. The intro cutscene and opening scene play only the first
+  // time; retrying after a defeat goes straight back to setup.
+  async startRun() {
     this.resetRun();
+    this.hud.setScreen(null);
+    this.state = 'story';
+    if (!this.introSeen) {
+      this.introSeen = true;
+      await this.cutscene.play(this.night.intro);
+      await this.say(this.night.opening);
+    }
     this.enterSetup();
+  }
+
+  async finishNight() {
+    this.state = 'story';
+    await this.cutscene.play(this.night.outro);
+    await this.say(this.night.closing);
+    this.state = 'victory';
+    this.hud.setScreen('victory', this);
+  }
+
+  readNearbyNote() {
+    if (this.state !== 'setup' || this.modal || !this.nearNote) return;
+    this.notes.open(this.nearNote);
+  }
+
+  bark(intruder, kind) {
+    const pool = BARKS[kind]?.[intruder.type] ?? BARKS[kind]?.any;
+    if (!pool || intruder.def.named) return;
+    if ((intruder.barkCooldown ?? 0) > this.time) return;
+    intruder.barkCooldown = this.time + 4;
+    this.hud.speech(intruder, pool[Math.floor(Math.random() * pool.length)]);
   }
 
   enterSetup() {
@@ -136,12 +206,13 @@ export class Game {
     if (this.state !== 'setup') return;
     this.state = 'wave';
     this.setGhost(null);
-    const w = WAVES[this.waveIndex];
+    const w = this.night.waves[this.waveIndex];
     this.spawnQueue = w.intruders.map(([type, door], k) => ({ type, door, at: this.time + 0.5 + k * w.spacing }));
     this.endTimer = 0;
     const doors = [...new Set(w.intruders.map(([, d]) => d))];
     const names = w.intruders.map(([t]) => INTRUDERS[t].name);
     this.hud.banner(`<b>Intruders!</b><br>${names.join(', ')}<br><small>from the ${doors.join(' and ')} door${doors.length > 1 ? 's' : ''}</small>`, 3);
+    if (w.onStart) this.say(w.onStart);
   }
 
   aliveCount() {
@@ -151,6 +222,12 @@ export class Game {
   // ---------- Callbacks from intruders / traps ----------
 
   onHit(intruder, source, dmg, mult) {
+    const p = intruder.pos;
+    this.fx.sparks({ x: p.x, y: p.y + 1.1 * intruder.def.scale, z: p.z }, 10 + intruder.combo.count * 4);
+    if (['Iron Weight', 'Wall Slam', 'Hard Landing'].includes(source)) this.fx.dust(p, 18, 1.2);
+    // Hit-stop: a tiny freeze that grows with the chain, capped so it never drags.
+    this.freeze = Math.max(this.freeze, Math.min(0.05 + intruder.combo.count * 0.02, 0.12));
+    if (Math.random() < 0.35) this.bark(intruder, 'hit');
     const cls = mult > 1 ? 'combo' : '';
     this.hud.floatText(intruder.pos, `${dmg}`, cls);
     this.hud.showCombo(intruder.combo.chain, intruder.combo.nextMultiplier());
@@ -169,6 +246,7 @@ export class Game {
     this.score += intruder.def.score + (summary ? summary.score : 0);
     if (summary && summary.hits >= 2) this.hud.showCombo(summary.chain, 0, summary.score);
     this.hud.floatText(intruder.pos, `+${intruder.def.reward}⚙`, 'cogs');
+    this.fx.defeat(intruder.pos);
     this.shake(0.2);
   }
 
@@ -339,7 +417,9 @@ export class Game {
   endFrame(frameDt) {
     this.dt = frameDt;
     this.room.update(this.time);
-    this.cam.follow(frameDt, this.player.pos);
+    this.notes.animate(this.time);
+    if (!this.modal) this.fx.update(frameDt);
+    this.cam.follow(frameDt, this.focus ? this.focus.pos : this.player.pos);
     if (this.shakeAmt > 0) {
       const s = this.shakeAmt;
       this.camera.position.x += (Math.random() - 0.5) * s;
@@ -350,8 +430,23 @@ export class Game {
   }
 
   step(dt) {
-    this.time += dt;
     const input = this.input;
+    if (input.wasPressed('b')) this.cycleBrightness();
+
+    // Story overlays pause everything and take the input.
+    const modal = this.modal;
+    if (modal) {
+      modal.update(dt, input);
+      this.setGhost(null);
+      for (const m of this.zoneMeshes) m.visible = false;
+      return;
+    }
+    if (this.state === 'story') return;
+
+    // During hit-stop the world holds still; input (trap triggers) still registers.
+    const frozen = this.freeze > 0;
+    if (frozen) this.freeze = Math.max(0, this.freeze - dt);
+    else this.time += dt;
 
     if (this.state === 'title' || this.state === 'victory' || this.state === 'defeat') {
       // Consume the key so the same press doesn't also start wave 1 below.
@@ -361,16 +456,17 @@ export class Game {
       }
     }
 
-    if (input.wasPressed('b')) this.cycleBrightness();
-
-    if (this.state === 'setup' || this.state === 'wave') {
+    if ((this.state === 'setup' || this.state === 'wave') && !frozen) {
       this.player.update(dt, input, this.cam.yaw);
     }
 
     if (this.state === 'setup') {
       this.updateBuild();
+      this.nearNote = this.notes.nearest(this.player.pos);
+      if (input.wasPressed('f')) this.readNearbyNote();
       if (input.wasPressed('Enter')) this.startWave();
     } else {
+      this.nearNote = null;
       this.setGhost(null);
       for (const m of this.zoneMeshes) m.visible = false;
     }
@@ -390,14 +486,26 @@ export class Game {
         const n = new Intruder(this.scene, s.type, p);
         n.facing = Math.atan2(-door.side.x, -door.side.z);
         this.intruders.push(n);
+        const entrance = this.night.waves[this.waveIndex].onSpawn?.[s.type];
+        if (entrance) {
+          this.hud.banner(`<b>${INTRUDERS[s.type].name}</b>`, 2.5);
+          // Swing the camera over to the newcomer while they speak.
+          this.focus = n;
+          this.say(entrance).then(() => (this.focus = null));
+          break; // the rest of the queue waits until the scene is over
+        } else {
+          setTimeout(() => this.bark(n, 'enter'), 900);
+        }
       }
     }
 
-    this.updateFlow(dt);
-    for (const t of this.traps) t.update(dt, this);
-    for (const n of this.intruders) n.update(dt, this);
-    this.separate();
-    this.intruders = this.intruders.filter((n) => !n.removed);
+    if (!frozen) {
+      this.updateFlow(dt);
+      for (const t of this.traps) t.update(dt, this);
+      for (const n of this.intruders) n.update(dt, this);
+      this.separate();
+      this.intruders = this.intruders.filter((n) => !n.removed);
+    }
 
     if (this.state === 'wave') {
       if (this.player.dead) {
@@ -409,11 +517,14 @@ export class Game {
       } else if (this.aliveCount() === 0) {
         this.endTimer += dt;
         if (this.endTimer > 1.5) {
+          const cleared = this.night.waves[this.waveIndex];
           this.waveIndex++;
           this.player.heal(30);
-          if (this.waveIndex >= WAVES.length) {
-            this.state = 'victory';
-            this.hud.setScreen('victory', this);
+          if (this.waveIndex >= this.night.waves.length) {
+            this.finishNight();
+          } else if (cleared.onClear) {
+            this.state = 'story';
+            this.say(cleared.onClear).then(() => this.enterSetup());
           } else {
             this.enterSetup();
           }

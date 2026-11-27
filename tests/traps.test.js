@@ -106,7 +106,7 @@ test('ram -> clamp -> weight chains into a 3-hit combo and kills a thief', () =>
 test('traps without a target in their zone report none', () => {
   const game = makeGame();
   const clamp = new Trap(scene, 'clamp', 12, 2, { x: 0, z: 1 });
-  spawn(game, 'thief', 15, 6);
+  spawn(game, 'thief', 14, 7);
   assert.equal(clamp.targetsIn(game.intruders).length, 0);
 });
 
