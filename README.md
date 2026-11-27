@@ -5,7 +5,9 @@ Keeper who cannot fight: lure intruders onto the manor's clockwork traps and cha
 them into combos.
 
 An original game inspired by the PlayStation-era trap-defense genre. See
-[`docs/DESIGN.md`](docs/DESIGN.md) for the full design.
+[`docs/DESIGN.md`](docs/DESIGN.md) for the design and [`docs/STORY.md`](docs/STORY.md)
+for the story bible. Playable now: **Night One, "The First Night,"** with
+illustrated cutscenes, dialogue and notes to find.
 
 ## Run it
 
@@ -25,6 +27,7 @@ npm run build    # static build in dist/
    layer: `1` floor, `2` wall, `3` ceiling. A green lamp means a trap has a
    target. `Space` dashes through attacks.
 3. Chain hits within 3 seconds for damage multipliers and big score.
+4. Glowing pages on the walls are notes: walk up and press `F` (or tap Read) during setup.
 
 **On a phone or tablet** the game switches to touch controls automatically: the
 left thumb is a floating joystick, dragging with the right thumb turns the camera,

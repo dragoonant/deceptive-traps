@@ -106,6 +106,7 @@ export const INTRUDERS = {
     reward: 40,
     score: 100,
     color: 0x5b8c4a,
+    look: 'thief',
     scale: 1,
   },
   knight: {
@@ -121,17 +122,46 @@ export const INTRUDERS = {
     reward: 90,
     score: 250,
     color: 0x9aa3ad,
+    look: 'knight',
     scale: 1.25,
+  },
+  // Named story intruders: tougher variants with their own look and lines.
+  rook: {
+    name: 'Jessamy Rook',
+    named: true,
+    hp: 170,
+    speed: 3.5,
+    radius: 0.42,
+    knockbackResist: 0.15,
+    damage: 14,
+    attackRange: 1.3,
+    windup: 0.4,
+    attackCooldown: 1.0,
+    reward: 120,
+    score: 600,
+    color: 0xc4302b,
+    look: 'rook',
+    scale: 1.05,
+  },
+  garrick: {
+    name: 'Sir Oswin Garrick',
+    named: true,
+    hp: 320,
+    speed: 2.0,
+    radius: 0.55,
+    knockbackResist: 0.55,
+    damage: 26,
+    attackRange: 1.7,
+    windup: 0.75,
+    attackCooldown: 1.6,
+    reward: 150,
+    score: 900,
+    color: 0xd83030,
+    look: 'garrick',
+    scale: 1.3,
   },
 };
 
-// Each intruder enters through a door defined in level.js (north = Foyer, east = Gallery).
-export const WAVES = [
-  { spacing: 2.5, intruders: [['thief', 'north'], ['thief', 'north']] },
-  { spacing: 2, intruders: [['thief', 'north'], ['thief', 'east'], ['thief', 'north']] },
-  { spacing: 2.5, intruders: [['knight', 'east'], ['thief', 'north'], ['thief', 'north']] },
-  { spacing: 2, intruders: [['knight', 'north'], ['thief', 'east'], ['knight', 'east'], ['thief', 'north']] },
-];
+// Waves and starting cogs now live in each night's script (src/story/night*.js).
 
-export const STARTING_COGS = 250;
 export const SELL_REFUND = 1; // full refund during setup

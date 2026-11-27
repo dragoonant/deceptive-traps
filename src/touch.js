@@ -178,7 +178,7 @@ export class TouchControls {
   // Called every rendered frame to match buttons to the game phase.
   update(game) {
     if (!this.enabled) return;
-    const playing = game.state === 'setup' || game.state === 'wave';
+    const playing = (game.state === 'setup' || game.state === 'wave') && !game.modal;
     this.root.classList.toggle('show', playing);
     this.grid.className = game.state === 'wave' ? 'wave' : 'setup';
     if (game.state === 'wave') {

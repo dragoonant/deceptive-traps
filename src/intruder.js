@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { INTRUDERS, GRAVITY, ENV } from './config.js';
 import { collideCircle, worldToTile, isWalkable } from './level.js';
-import { buildHumanoid } from './characters.js';
+import { buildHumanoid, animateWalk } from './characters.js';
 import { ComboTracker } from './combo.js';
 
 let nextId = 1;
@@ -11,11 +11,7 @@ export class Intruder {
     this.id = nextId++;
     this.type = type;
     this.def = INTRUDERS[type];
-    const look =
-      type === 'knight'
-        ? { body: 0x5d6670, accent: 0x8c2f2f, helmet: true }
-        : { body: this.def.color, accent: 0x3a2a1a, hood: true };
-    const h = buildHumanoid({ ...look, scale: this.def.scale });
+    const h = buildHumanoid(this.def.look, this.def.scale);
     this.mesh = h.root;
     this.parts = h;
     scene.add(this.mesh);
@@ -237,11 +233,10 @@ export class Intruder {
 
     rig.rotation.set(0, 0, 0);
     rig.position.y = 0;
+    const legs = this.parts.legs;
+    legs[0].rotation.x = legs[1].rotation.x = 0;
     if (this.state === 'walk') {
-      const s = Math.sin(this.walkPhase) * 0.6;
-      arms[0].rotation.x = s;
-      arms[1].rotation.x = -s;
-      rig.position.y = Math.abs(Math.sin(this.walkPhase)) * 0.05;
+      animateWalk(this.parts, this.walkPhase, speed > 0.1);
     } else if (this.state === 'windup') {
       const t = 1 - this.stateTimer / this.def.windup;
       arms[0].rotation.x = arms[1].rotation.x = -Math.PI * 0.9 * t;
@@ -251,6 +246,8 @@ export class Intruder {
       rig.rotation.x = this.grounded ? -0.3 : -0.8;
       arms[0].rotation.z = 1.2;
       arms[1].rotation.z = -1.2;
+      legs[0].rotation.x = 0.5;
+      legs[1].rotation.x = -0.3;
     } else if (this.state === 'stunned') {
       rig.rotation.z = Math.sin(performance.now() / 90) * 0.15;
       rig.position.y = -0.1;
